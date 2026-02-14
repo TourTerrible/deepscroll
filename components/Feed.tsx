@@ -10,13 +10,47 @@ const ALL_CATEGORIES = Array.from(
     new Set(seedContent.map((item) => item.category))
 ).sort();
 
+// LocalStorage key for seen items
+const SEEN_IDS_KEY = "deepscroll-seen-ids";
+
 export default function Feed() {
     const [items, setItems] = useState<ContentItem[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [hasMore, setHasMore] = useState(true);
     const [activeCategory, setActiveCategory] = useState<string | null>(null);
+    const [seenIds, setSeenIds] = useState<string[]>([]);
     const containerRef = useRef<HTMLDivElement>(null);
     const loadingRef = useRef(false);
+
+    // Load seen IDs from localStorage on mount
+    useEffect(() => {
+        const stored = localStorage.getItem(SEEN_IDS_KEY);
+        if (stored) {
+            try {
+                setSeenIds(JSON.parse(stored));
+            } catch (e) {
+                console.error("Failed to parse seen IDs:", e);
+            }
+        }
+    }, []);
+
+    // Save seen IDs to localStorage whenever they change
+    useEffect(() => {
+        if (seenIds.length > 0) {
+            localStorage.setItem(SEEN_IDS_KEY, JSON.stringify(seenIds));
+        }
+    }, [seenIds]);
+
+    // Mark items as seen when they're added to the feed
+    useEffect(() => {
+        if (items.length > 0) {
+            const newSeenIds = items.map((item) => item.id);
+            setSeenIds((prev) => {
+                const combined = [...new Set([...prev, ...newSeenIds])];
+                return combined;
+            });
+        }
+    }, [items]);
 
     // Initial load
     useEffect(() => {
@@ -52,7 +86,7 @@ export default function Feed() {
         setIsLoading(true);
 
         try {
-            const newItems = await getFeedItems(items.length, 10);
+            const newItems = await getFeedItems(items.length, 10, seenIds);
 
             if (newItems.length === 0) {
                 setHasMore(false);

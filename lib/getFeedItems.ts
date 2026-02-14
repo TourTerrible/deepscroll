@@ -1,33 +1,40 @@
-import { ContentItem, seedContent } from "@/data/seedContent";
+import { ContentItem } from "@/data/seedContent";
 
 /**
- * Abstracted content loader interface
- * Currently returns seed data, but can be extended to support:
- * - OpenAI API generation
- * - Supabase/Firebase
- * - Notion API
- * - Any CMS
+ * Fetch feed items from the AI content API
+ * 
+ * @param offset - Not used anymore (kept for compatibility)
+ * @param limit - Number of items to fetch
+ * @param seenIds - Array of item IDs already seen by the user
+ * @returns Array of content items
  */
 export async function getFeedItems(
     offset: number = 0,
-    limit: number = 10
+    limit: number = 10,
+    seenIds: string[] = []
 ): Promise<ContentItem[]> {
-    // Simulate API delay for realistic UX
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    try {
+        const response = await fetch("/api/generate", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                count: limit,
+                seenIds,
+            }),
+        });
 
-    // Return paginated seed content
-    const items = seedContent.slice(offset, offset + limit);
+        if (!response.ok) {
+            throw new Error("Failed to fetch content");
+        }
 
-    // TODO: Add support for dynamic content sources
-    // TODO: Implement caching strategy
-    // TODO: Add error handling and retry logic
+        const data = await response.json();
+        console.log(`Fetched ${data.items.length} items from ${data.source}`);
 
-    return items;
-}
-
-/**
- * Get total count of available items
- */
-export async function getFeedItemCount(): Promise<number> {
-    return seedContent.length;
+        return data.items;
+    } catch (error) {
+        console.error("Error fetching feed items:", error);
+        return [];
+    }
 }
